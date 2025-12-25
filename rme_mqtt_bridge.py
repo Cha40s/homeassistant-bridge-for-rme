@@ -8,7 +8,7 @@ RME ADI-2 DAC MQTT <-> USB-MIDI bridge
 - Publishes:   rme/dac/status            (online/offline, retained)
 
 Behavior:
-- Safety limits: -60.0 dB .. -10.0 dB
+- Safety limits: MIN_DB .. MAX_DB
 - DAC presence detection via `amidi -l` ("ADI-2 DAC")
 - If DAC offline: remember latest requested volume as pending
 - When DAC becomes "ready": apply DEFAULT_DB, then pending (if any)
@@ -20,6 +20,10 @@ MIDI RX (DAC -> Pi):
 - Parses incoming hex bytes, decodes RME SysEx for Line Out volume
 - Mirrors detected Line Out volume changes to MQTT state topic
 - Verbose debug logging when DEBUG=1
+
+Improvements (requested):
+1) Publish db/state only when it actually changed, quantized to 0.5 dB steps
+3) Watchdog: if MIDI reader (amidi -d) dies while DAC is ready -> restart it
 """
 
 import os
@@ -48,9 +52,9 @@ MAX_DB = float(os.environ.get("MAX_DB", "-10.0"))
 DAC_POLL_SECONDS = float(os.environ.get("DAC_POLL_SECONDS", "1.0"))
 
 # DAC readiness tuning:
-READY_STREAK = int(os.environ.get("READY_STREAK", "3"))          # consecutive online polls required
-APPLY_RETRIES = int(os.environ.get("APPLY_RETRIES", "6"))         # retries for default/pending
-APPLY_RETRY_DELAY = float(os.environ.get("APPLY_RETRY_DELAY", "0.6"))  # seconds between retries
+READY_STREAK = int(os.environ.get("READY_STREAK", "3"))               # consecutive online polls required
+APPLY_RETRIES = int(os.environ.get("APPLY_RETRIES", "6"))             # retries for default/pending
+APPLY_RETRY_DELAY = float(os.environ.get("APPLY_RETRY_DELAY", "0.6")) # seconds between retries
 
 MANAGE_RASPOTIFY = os.environ.get("MANAGE_RASPOTIFY", "1") == "1"
 
@@ -58,6 +62,9 @@ DEBOUNCE_SECONDS = float(os.environ.get("DEBOUNCE_SECONDS", "0.03"))
 
 # Incoming MIDI (DAC -> Pi) debounce to avoid flooding MQTT when knob is turned
 MIDI_RX_DEBOUNCE_SECONDS = float(os.environ.get("MIDI_RX_DEBOUNCE_SECONDS", "0.02"))
+
+# Restart delay if amidi dies
+MIDI_RESTART_SECONDS = float(os.environ.get("MIDI_RESTART_SECONDS", "1.0"))
 
 # Debug switch from systemd env: DEBUG=1
 DEBUG = os.environ.get("DEBUG", "0") == "1"
@@ -74,23 +81,49 @@ def info(msg: str) -> None:
     print(f"[{ts}] [INFO ] {msg}", flush=True)
 
 
+def clamp(v: float, lo: float, hi: float) -> float:
+    return max(lo, min(hi, v))
+
+
+def quantize_05(db: float) -> float:
+    # 0.5 dB steps (matches HA slider + your DAC expectation)
+    return round(db * 2.0) / 2.0
+
+
+# --- State / pending tracking ---
 last_sent_ts = 0.0
 pending_db: float | None = None
+
+# last state that we actually published to MQTT (already clamped+quantized)
+last_published_db: float | None = None
 
 # "online" = currently detected; "ready" = stable enough to accept MIDI
 dac_online = False
 dac_ready = False
 online_streak = 0
 
-# MIDI reader runtime
+# --- MIDI reader runtime ---
 midi_proc: subprocess.Popen | None = None
 midi_thread: threading.Thread | None = None
 midi_stop = threading.Event()
 last_rx_ts = 0.0
 
+# for watchdog
+last_midi_restart_ts = 0.0
 
-def clamp(v: float, lo: float, hi: float) -> float:
-    return max(lo, min(hi, v))
+
+def publish_state_if_changed(client: mqtt.Client, db: float, reason: str) -> None:
+    """Clamp + quantize (0.5 dB), publish retained only if changed."""
+    global last_published_db
+    dbq = quantize_05(clamp(db, MIN_DB, MAX_DB))
+
+    if last_published_db is not None and abs(dbq - last_published_db) < 1e-9:
+        dbg(f"state unchanged ({dbq:.1f} dB) -> skip publish ({reason})")
+        return
+
+    last_published_db = dbq
+    dbg(f"Publishing state ({reason}) {TOPIC_STATE_DB} = {dbq:.1f} (retain)")
+    client.publish(TOPIC_STATE_DB, f"{dbq:.1f}", qos=1, retain=True)
 
 
 def is_dac_online() -> bool:
@@ -119,12 +152,13 @@ def send_sysex(hex_sysex: str) -> None:
 
 
 def db_to_sysex_lineout(db: float) -> str:
-    db = clamp(db, MIN_DB, MAX_DB)
+    # We send in 0.1 dB units, but input is already quantized to 0.5 dB.
+    db = quantize_05(clamp(db, MIN_DB, MAX_DB))
 
     addr = 3   # Line Out Channel Settings
     idx = 12   # Volume
 
-    val = int(round(db * 10.0))  # 0.1 dB steps
+    val = int(round(db * 10.0))  # 0.1 dB steps (so 0.5 dB => multiples of 5)
     v11 = val & 0x7FF            # 11-bit two's complement
 
     upper4 = (v11 >> 7) & 0x0F
@@ -134,15 +168,11 @@ def db_to_sysex_lineout(db: float) -> str:
     b1 = ((idx & 0x03) << 5) | (1 << 4) | upper4  # scale_bit=1 for volume
     b2 = lower7
 
-    # NOTE: historically we sent cmd=0x02 here. DAC reports changes with cmd=0x01.
+    # cmd=0x02 works for setting on this device
     return f"F0 00 20 0D 71 02 {b0:02X} {b1:02X} {b2:02X} F7"
 
 
 def _parse_hex_stream_from_line(line: str) -> str | None:
-    """
-    Extract all 2-hex-byte tokens from an arbitrary amidi output line.
-    Returns normalized "AA BB CC ..." or None.
-    """
     tokens = re.findall(r"(?i)\b[0-9a-f]{2}\b", line)
     if not tokens:
         return None
@@ -160,41 +190,32 @@ def sysex_to_db_if_lineout_volume(hex_stream: str) -> float | None:
     """
     Decode RME ADI-2 SysEx for Line Out volume (addr=3, idx=12).
 
-    Important: DAC sends different opcodes:
-      - 0x02 often used for "set" style messages
-      - 0x01 observed in your logs for "report/change" messages
-
-    We therefore match header: F0 00 20 0D 71 <cmd> ...
-    and accept cmd in {01, 02} for this decoder.
+    Match header: F0 00 20 0D 71 <cmd> ...
+    Accept cmd in {01,02}.
     """
     parts = [p.upper() for p in hex_stream.strip().split() if p]
     if len(parts) < 9:
         return None
 
-    # Search for header: F0 00 20 0D 71
     header = ["F0", "00", "20", "0D", "71"]
     for i in range(0, len(parts) - len(header)):
         if parts[i:i + 5] != header:
             continue
 
-        # Need at least cmd + b0 b1 b2 afterwards
         if i + 8 >= len(parts):
             return None
 
         cmd = parts[i + 5]
         if cmd not in ("01", "02"):
-            # Not a command type we handle for volume (still log in debug sometimes)
             dbg(f"RX RME header found but cmd={cmd} not in (01,02) -> ignore")
             continue
 
-        # find terminating F7 after cmd
         try:
             end_idx = parts.index("F7", i + 5)
         except ValueError:
             dbg("RX RME header found but no F7 terminator -> ignore")
             continue
 
-        # ensure we have at least cmd+b0+b1+b2 before F7
         if i + 9 > end_idx:
             dbg(f"RX RME cmd={cmd} but too short before F7 (end_idx={end_idx}, start={i})")
             continue
@@ -211,7 +232,6 @@ def sysex_to_db_if_lineout_volume(hex_stream: str) -> float | None:
         dbg(f"RX RME cmd={cmd} b0={b0:02X} b1={b1:02X} b2={b2:02X} -> addr={addr} idx={idx} scale={scale_bit}")
 
         if addr != 3 or idx != 12:
-            # Not Line Out volume
             continue
 
         if scale_bit != 1:
@@ -220,14 +240,13 @@ def sysex_to_db_if_lineout_volume(hex_stream: str) -> float | None:
 
         upper4 = b1 & 0x0F
         lower7 = b2 & 0x7F
-        v11 = (upper4 << 7) | lower7  # 11-bit two's complement
+        v11 = (upper4 << 7) | lower7
 
-        # sign extend 11-bit
         if v11 & 0x400:
             v11 -= 0x800
 
         db = v11 / 10.0
-        db = clamp(db, MIN_DB, MAX_DB)
+        db = quantize_05(clamp(db, MIN_DB, MAX_DB))
         dbg(f"RX LineOutVol OK: raw_v11={v11} -> {db:.1f} dB (cmd={cmd})")
         return db
 
@@ -236,6 +255,7 @@ def sysex_to_db_if_lineout_volume(hex_stream: str) -> float | None:
 
 def apply_volume_with_retries(db: float) -> None:
     """Fire-and-forget retries (device may ignore early during USB init)."""
+    db = quantize_05(clamp(db, MIN_DB, MAX_DB))
     sysex = db_to_sysex_lineout(db)
     dbg(f"apply_volume_with_retries({db:.1f} dB) retries={APPLY_RETRIES} delay={APPLY_RETRY_DELAY}")
     for n in range(APPLY_RETRIES):
@@ -306,10 +326,17 @@ def _midi_reader_loop(client: mqtt.Client) -> None:
             continue
         last_rx_ts = now
 
-        dbg(f"Publishing RX volume to MQTT {TOPIC_STATE_DB} = {db:.1f} (retain)")
-        client.publish(TOPIC_STATE_DB, f"{db:.1f}", qos=1, retain=True)
+        publish_state_if_changed(client, db, reason="midi_rx")
 
-    dbg("MIDI monitor exiting; terminating amidi process")
+    # process ended or stop requested
+    rc = None
+    try:
+        rc = midi_proc.poll() if midi_proc else None
+    except Exception:
+        rc = None
+
+    dbg(f"MIDI monitor exiting (amidi returncode={rc}); cleaning up")
+
     try:
         if midi_proc and midi_proc.poll() is None:
             midi_proc.terminate()
@@ -342,6 +369,18 @@ def stop_midi_monitor() -> None:
         dbg(f"stop_midi_monitor: exception: {e}")
 
 
+def midi_monitor_healthy() -> bool:
+    """Consider the monitor healthy if thread is alive and process is running."""
+    if not (midi_thread and midi_thread.is_alive()):
+        return False
+    if midi_proc is None:
+        return False
+    try:
+        return midi_proc.poll() is None
+    except Exception:
+        return False
+
+
 def on_connect(client, userdata, flags, reason_code, properties):
     info(f"MQTT connected rc={reason_code} host={MQTT_HOST}:{MQTT_PORT}")
     client.publish(TOPIC_BRIDGE_STATUS, "online", qos=1, retain=True)
@@ -364,9 +403,10 @@ def on_message(client, userdata, msg):
         dbg(f"MQTT payload parse error: {e}")
         return
 
-    db = clamp(db, MIN_DB, MAX_DB)
-    client.publish(TOPIC_STATE_DB, f"{db:.1f}", qos=1, retain=True)
-    dbg(f"Published state echo: {db:.1f} dB (retain)")
+    db = quantize_05(clamp(db, MIN_DB, MAX_DB))
+
+    # Mirror to state topic (retained), but only if changed
+    publish_state_if_changed(client, db, reason="mqtt_set_echo")
 
     if not dac_ready:
         pending_db = db
@@ -386,7 +426,7 @@ def on_message(client, userdata, msg):
 
 
 def main():
-    global dac_online, dac_ready, online_streak, pending_db
+    global dac_online, dac_ready, online_streak, pending_db, last_midi_restart_ts
 
     info(f"Bridge starting (DEBUG={'1' if DEBUG else '0'}) MIDI_PORT={MIDI_PORT}")
 
@@ -439,27 +479,39 @@ def main():
                 dbg("Starting raspotify (DAC ready)")
                 subprocess.run(["systemctl", "start", "raspotify"], check=False)
 
-            # Start MIDI monitor once device is stable
             start_midi_monitor(client)
+            last_midi_restart_ts = time.time()
 
             # Apply default (retries), then pending (retries)
-            default_db = clamp(DEFAULT_DB, MIN_DB, MAX_DB)
+            default_db = quantize_05(clamp(DEFAULT_DB, MIN_DB, MAX_DB))
             apply_volume_with_retries(default_db)
-            client.publish(TOPIC_STATE_DB, f"{default_db:.1f}", qos=1, retain=True)
-            dbg(f"Published default state: {default_db:.1f} dB")
+            publish_state_if_changed(client, default_db, reason="default_after_ready")
 
             if pending_db is not None:
                 dbg(f"Applying pending after ready: {pending_db:.1f} dB")
                 apply_volume_with_retries(pending_db)
-                client.publish(TOPIC_STATE_DB, f"{pending_db:.1f}", qos=1, retain=True)
+                publish_state_if_changed(client, pending_db, reason="pending_after_ready")
                 pending_db = None
 
         # If ready and we still have pending (debounce), apply it
         if dac_ready and pending_db is not None:
             dbg(f"Applying pending (debounce tail): {pending_db:.1f} dB")
             apply_volume_with_retries(pending_db)
-            client.publish(TOPIC_STATE_DB, f"{pending_db:.1f}", qos=1, retain=True)
+            publish_state_if_changed(client, pending_db, reason="pending_tail")
             pending_db = None
+
+        # --- Watchdog: restart MIDI reader if it died while DAC is ready ---
+        if dac_ready:
+            healthy = midi_monitor_healthy()
+            if not healthy:
+                now = time.time()
+                if now - last_midi_restart_ts >= MIDI_RESTART_SECONDS:
+                    info("MIDI monitor not healthy while DAC ready -> restarting")
+                    stop_midi_monitor()
+                    start_midi_monitor(client)
+                    last_midi_restart_ts = now
+                else:
+                    dbg("MIDI monitor not healthy, but restart suppressed due to backoff")
 
         time.sleep(DAC_POLL_SECONDS)
 
@@ -474,4 +526,3 @@ if __name__ == "__main__":
         except Exception:
             pass
         sys.exit(0)
-
