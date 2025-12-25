@@ -13,6 +13,7 @@ Environment=MIDI_PORT=hw:1,0,0
 Environment=READY_STREAK=5
 Environment=APPLY_RETRIES=10
 Environment=APPLY_RETRY_DELAY=0.8
+Environment=DEBUG=0
 ExecStart=/usr/local/bin/rme_mqtt_bridge.py
 Restart=on-failure
 RestartSec=2
