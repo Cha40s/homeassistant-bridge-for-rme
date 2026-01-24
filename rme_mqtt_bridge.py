@@ -56,7 +56,7 @@ READY_STREAK = int(os.environ.get("READY_STREAK", "3"))               # consecut
 APPLY_RETRIES = int(os.environ.get("APPLY_RETRIES", "6"))             # retries for default/pending
 APPLY_RETRY_DELAY = float(os.environ.get("APPLY_RETRY_DELAY", "0.6")) # seconds between retries
 
-MANAGE_RASPOTIFY = os.environ.get("MANAGE_RASPOTIFY", "1") == "1"
+MANAGE_RASPOTIFY = os.environ.get("MANAGE_RASPOTIFY", "0") == "1"
 
 DEBOUNCE_SECONDS = float(os.environ.get("DEBOUNCE_SECONDS", "0.03"))
 

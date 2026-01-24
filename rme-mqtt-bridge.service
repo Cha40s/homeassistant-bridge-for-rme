@@ -1,6 +1,6 @@
 [Unit]
 Description=RME ADI-2 DAC MQTT <-> MIDI Bridge
-After=network-online.target raspotify.service
+After=network-online.target
 Wants=network-online.target
 
 [Service]
@@ -14,6 +14,7 @@ Environment=READY_STREAK=5
 Environment=APPLY_RETRIES=10
 Environment=DEBUG=0
 Environment=APPLY_RETRY_DELAY=0.8
+Environment=MANAGE_RASPOTIFY=0
 ExecStart=/usr/local/bin/rme_mqtt_bridge.py
 Restart=on-failure
 RestartSec=2
