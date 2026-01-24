@@ -11,7 +11,7 @@ Raspberry Pi, librespot/raspotify und der RME ADI-2 DAC werden zu einem schlanke
 - Home Assistant UI über MQTT (Slider, Presets, Automationen)
 - Sicherheits-Limits mit Clamping im Script (z. B. −60 dB bis −10 dB)
 - Erkennung von DAC Online/Offline inkl. verzögerter Initialisierung
-- Optional: external raspotify manager via MQTT (start/stop by DAC status)
+- Optional: raspotify manager via MQTT (start/stop by DAC status)
 - Default-Lautstärke nach dem Einschalten inkl. Retries bis USB/MIDI stabil ist
 
 ---
@@ -72,9 +72,9 @@ Spotify App → raspotify/librespot → USB Audio → RME ADI-2 DAC
 
 ---
 
-## Raspotify control (choose one)
+## Raspotify control
 
-Option A (recommended): external raspotify manager
+External raspotify manager (separate service):
 
 Copy files and enable:
 ```bash
@@ -84,18 +84,13 @@ sudo chmod +x /usr/local/bin/raspotify_manager.py
 sudo systemctl daemon-reload
 sudo systemctl enable --now raspotify-manager.service
 ```
-Keep `MANAGE_RASPOTIFY=0` in `rme-mqtt-bridge.service`.
-
-Option B: bridge controls raspotify
-
-Set `MANAGE_RASPOTIFY=1` in `rme-mqtt-bridge.service` and do not run `raspotify-manager.service` at the same time.
 
 ---
 
 ## Verhalten / Logik
 
 - DAC-Erkennung über `amidi -l` (Name enthält „ADI-2 DAC“). „Ready“ erst nach mehreren Online-Polls (`READY_STREAK`).
-- Wenn `MANAGE_RASPOTIFY=1`, startet/stoppt die Bridge raspotify. Alternativ kann das der raspotify-manager per MQTT machen.
+- Raspotify kann vom raspotify-manager per MQTT anhand des DAC-Status gestartet/gestoppt werden.
 - Beim Hochfahren des DAC: Default-Lautstärke wird mit Retries gesetzt, danach ggf. ein ausstehender (pending) Wert.
 - Eingehende MQTT-Werte werden entprellt (`DEBOUNCE_SECONDS`) und strikt auf `MIN_DB`/`MAX_DB` begrenzt.
 
@@ -146,7 +141,6 @@ mqtt:
 | `APPLY_RETRIES` | `6` (Beispiel-Service: `10`) | Anzahl Wiederholungen beim Setzen von Default/Pending |
 | `APPLY_RETRY_DELAY` | `0.6` s (Beispiel-Service: `0.8`) | Pause zwischen Wiederholungen |
 | `DEBOUNCE_SECONDS` | `0.03` | Mindestabstand zwischen Lautstärke-Updates |
-| `MANAGE_RASPOTIFY` | `0` | `1` = Bridge startet/stoppt raspotify (nicht parallel zum raspotify-manager) |
 
 ---
 

@@ -56,8 +56,6 @@ READY_STREAK = int(os.environ.get("READY_STREAK", "3"))               # consecut
 APPLY_RETRIES = int(os.environ.get("APPLY_RETRIES", "6"))             # retries for default/pending
 APPLY_RETRY_DELAY = float(os.environ.get("APPLY_RETRY_DELAY", "0.6")) # seconds between retries
 
-MANAGE_RASPOTIFY = os.environ.get("MANAGE_RASPOTIFY", "0") == "1"
-
 DEBOUNCE_SECONDS = float(os.environ.get("DEBOUNCE_SECONDS", "0.03"))
 
 # Incoming MIDI (DAC -> Pi) debounce to avoid flooding MQTT when knob is turned
@@ -466,18 +464,11 @@ def main():
             if not online:
                 dac_ready = False
                 stop_midi_monitor()
-                if MANAGE_RASPOTIFY:
-                    dbg("Stopping raspotify (DAC offline)")
-                    subprocess.run(["systemctl", "stop", "raspotify"], check=False)
 
         # Become "ready" only after N consecutive online polls
         if dac_online and not dac_ready and online_streak >= READY_STREAK:
             dac_ready = True
             info(f"DAC READY (online_streak={online_streak} >= READY_STREAK={READY_STREAK})")
-
-            if MANAGE_RASPOTIFY:
-                dbg("Starting raspotify (DAC ready)")
-                subprocess.run(["systemctl", "start", "raspotify"], check=False)
 
             start_midi_monitor(client)
             last_midi_restart_ts = time.time()

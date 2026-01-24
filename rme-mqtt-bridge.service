@@ -14,7 +14,6 @@ Environment=READY_STREAK=5
 Environment=APPLY_RETRIES=10
 Environment=DEBUG=0
 Environment=APPLY_RETRY_DELAY=0.8
-Environment=MANAGE_RASPOTIFY=0
 ExecStart=/usr/local/bin/rme_mqtt_bridge.py
 Restart=on-failure
 RestartSec=2
