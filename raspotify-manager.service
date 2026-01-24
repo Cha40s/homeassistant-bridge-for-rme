@@ -1,0 +1,11 @@
+[Unit]
+Description=Raspotify Manager (DAC aware)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/raspotify_manager.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
