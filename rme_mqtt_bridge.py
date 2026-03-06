@@ -27,6 +27,7 @@ Improvements (requested):
 """
 
 import os
+import signal
 import time
 import subprocess
 import threading
@@ -108,6 +109,9 @@ last_rx_ts = 0.0
 
 # for watchdog
 last_midi_restart_ts = 0.0
+
+# graceful shutdown
+shutdown_event = threading.Event()
 
 
 def publish_state_if_changed(client: mqtt.Client, db: float, reason: str) -> None:
@@ -428,6 +432,13 @@ def main():
 
     info(f"Bridge starting (DEBUG={'1' if DEBUG else '0'}) MIDI_PORT={MIDI_PORT}")
 
+    def _handle_signal(signum, frame):
+        info(f"Signal {signum} received, shutting down...")
+        shutdown_event.set()
+
+    signal.signal(signal.SIGTERM, _handle_signal)
+    signal.signal(signal.SIGINT, _handle_signal)
+
     client = mqtt.Client(
         callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
         client_id="rme_mqtt_bridge",
@@ -446,7 +457,7 @@ def main():
     client.connect(MQTT_HOST, MQTT_PORT, keepalive=30)
     client.loop_start()
 
-    while True:
+    while not shutdown_event.is_set():
         online = is_dac_online()
 
         if online:
@@ -504,16 +515,16 @@ def main():
                 else:
                     dbg("MIDI monitor not healthy, but restart suppressed due to backoff")
 
-        time.sleep(DAC_POLL_SECONDS)
+        shutdown_event.wait(DAC_POLL_SECONDS)
+
+    # Cleanup
+    info("Shutting down...")
+    stop_midi_monitor()
+    client.publish(TOPIC_BRIDGE_STATUS, "offline", qos=1, retain=True)
+    client.disconnect()
+    client.loop_stop()
+    info("Bridge stopped cleanly")
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        info("Interrupted, exiting")
-        try:
-            stop_midi_monitor()
-        except Exception:
-            pass
-        sys.exit(0)
+    main()

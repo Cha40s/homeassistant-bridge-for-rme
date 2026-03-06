@@ -4,10 +4,9 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
+EnvironmentFile=/etc/default/rme-mqtt-bridge
 Environment=MQTT_HOST=192.168.100.60
 Environment=MQTT_PORT=1883
-Environment=MQTT_USER=mqtt
-Environment=MQTT_PASS=REMOVED_SECRET
 Environment=MQTT_TOPIC=rme/dac/status
 ExecStart=/usr/local/bin/raspotify_manager.py
 Restart=always

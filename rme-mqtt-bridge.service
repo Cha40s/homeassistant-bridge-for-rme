@@ -5,10 +5,9 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+EnvironmentFile=/etc/default/rme-mqtt-bridge
 Environment=MQTT_HOST=192.168.100.60
 Environment=MQTT_PORT=1883
-Environment=MQTT_USER=mqtt
-Environment=MQTT_PASS=REMOVED_SECRET
 Environment=MIDI_PORT=hw:1,0,0
 Environment=READY_STREAK=5
 Environment=APPLY_RETRIES=10
