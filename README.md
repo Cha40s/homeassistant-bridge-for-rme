@@ -1,121 +1,121 @@
 # RME ADI-2 DAC – MQTT Volume Bridge
 
-Steuere deinen RME ADI-2 DAC per USB-MIDI über Home Assistant. Ein Raspberry Pi übernimmt die Lautstärkeregelung direkt im DAC (nicht digital!), erkennt Online/Offline-Status und kommuniziert alles über MQTT. Die Audioquelle ist beliebig – WiiM, Spotify Connect, CD-Player oder was auch immer am DAC hängt.
+Control your RME ADI-2 DAC volume via Home Assistant. A Raspberry Pi handles volume control directly in the DAC hardware (not digitally!) via USB-MIDI, detects online/offline status, and communicates everything over MQTT. The audio source doesn't matter – WiiM, Spotify Connect, CD player, or anything else connected to the DAC.
 
 ---
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/DEIN_USER/RME_Bridge.git
+git clone https://github.com/YOUR_USER/RME_Bridge.git
 cd RME_Bridge
 sudo ./install.sh
 ```
 
-Das Script installiert alle Abhängigkeiten, fragt MQTT-Zugangsdaten ab und startet den Service.
+The script installs all dependencies, prompts for MQTT credentials, and starts the service.
 
 ---
 
 ## Highlights
 
-- Lautstärkeregelung direkt im DAC per USB-MIDI SysEx (kein digitales Clipping)
-- Home Assistant Integration über MQTT (Slider, Presets, Automationen)
-- Sicherheits-Limits: harte Grenzen bei −60 dB bis −10 dB
-- DAC Online/Offline Erkennung mit verzögerter Initialisierung
-- Default-Lautstärke beim Einschalten mit Retries bis USB-MIDI stabil ist
-- Graceful Shutdown bei SIGTERM (sauberes MQTT-Disconnect)
-- Optional: Spotify Connect (raspotify) mit DAC-gesteuertem Start/Stop
+- Volume control directly in the DAC via USB-MIDI SysEx (no digital clipping)
+- Home Assistant integration via MQTT (slider, presets, automations)
+- Safety limits: hard boundaries at -60 dB to -10 dB
+- DAC online/offline detection with delayed initialization
+- Default volume on power-up with retries until USB-MIDI is stable
+- Graceful shutdown on SIGTERM (clean MQTT disconnect)
+- Optional: Spotify Connect (raspotify) with DAC-controlled start/stop
 
 ---
 
 ## Hardware
 
-| Komponente | Getestet mit |
+| Component | Tested with |
 | --- | --- |
-| Raspberry Pi | Pi 4, Pi 5 (jedes Modell mit USB sollte funktionieren) |
+| Raspberry Pi | Pi 4, Pi 5 (any model with USB should work) |
 | DAC | RME ADI-2 DAC FS |
-| USB-Kabel | Standard USB-A/C zu Micro-B |
+| USB cable | Standard USB-A/C to Micro-B |
 | OS | Raspberry Pi OS (Bookworm), DietPi, Debian 12/13 |
-| MQTT Broker | Mosquitto (z. B. auf Home Assistant) |
+| MQTT Broker | Mosquitto (e.g. on Home Assistant) |
 
-> **Hinweis:** Der RME ADI-2 DAC meldet sich als USB-Audio- **und** USB-MIDI-Gerät. Die Bridge nutzt nur die MIDI-Schnittstelle für die Lautstärke. Audio läuft separat (ALSA, SPDIF, analog – egal).
-
----
-
-## Signalfluss
-
-```
-Audioquelle (WiiM / raspotify / CD / ...) → RME ADI-2 DAC
-                                              ↑
-                            MQTT ↔ MIDI Bridge → USB-MIDI → DAC Lautstärke
-                                     ↑
-                               MQTT Broker ↔ Home Assistant
-```
+> **Note:** The RME ADI-2 DAC registers as both a USB audio **and** USB MIDI device. The bridge only uses the MIDI interface for volume control. Audio runs separately (ALSA, SPDIF, analog – doesn't matter).
 
 ---
 
-## Dateien
+## Signal Flow
 
-| Datei | Zweck |
+```
+Audio source (WiiM / raspotify / CD / ...) → RME ADI-2 DAC
+                                               ↑
+                             MQTT ↔ MIDI Bridge → USB-MIDI → DAC Volume
+                                      ↑
+                                MQTT Broker ↔ Home Assistant
+```
+
+---
+
+## Files
+
+| File | Purpose |
 | --- | --- |
-| `rme_mqtt_bridge.py` | Zentrale Bridge: MQTT ↔ USB-MIDI, DAC-Erkennung, Lautstärke |
-| `rme-mqtt-bridge.service` | systemd-Service für die Bridge |
-| `env.example` | Vorlage für `/etc/default/rme-mqtt-bridge` (Credentials + Optionen) |
-| `install.sh` | Automatisches Setup |
-| `raspotify_manager.py` | Optional: raspotify Start/Stop anhand DAC-Status |
-| `raspotify-manager.service` | systemd-Service für den raspotify-Manager |
-| `conf` | Beispiel für `/etc/raspotify/conf` (librespot, bit-perfect) |
+| `rme_mqtt_bridge.py` | Main bridge: MQTT ↔ USB-MIDI, DAC detection, volume logic |
+| `rme-mqtt-bridge.service` | systemd service for the bridge |
+| `env.example` | Template for `/etc/default/rme-mqtt-bridge` (credentials + options) |
+| `install.sh` | Automated setup script |
+| `raspotify_manager.py` | Optional: start/stop raspotify based on DAC status |
+| `raspotify-manager.service` | systemd service for the raspotify manager |
+| `conf` | Example `/etc/raspotify/conf` (librespot, bit-perfect) |
 
 ---
 
-## Voraussetzungen
+## Prerequisites
 
-- Raspberry Pi mit USB-Verbindung zum RME ADI-2 DAC
-- MQTT Broker (z. B. Mosquitto auf Home Assistant)
-- Python 3.10+ und `paho-mqtt` (wird vom Installer installiert)
-- `amidi` aus `alsa-utils` (wird vom Installer installiert)
+- Raspberry Pi with USB connection to the RME ADI-2 DAC
+- MQTT broker (e.g. Mosquitto on Home Assistant)
+- Python 3.10+ and `paho-mqtt` (installed automatically)
+- `amidi` from `alsa-utils` (installed automatically)
 
 ---
 
 ## Installation
 
-### Automatisch (empfohlen)
+### Automatic (recommended)
 
 ```bash
-git clone https://github.com/DEIN_USER/RME_Bridge.git
+git clone https://github.com/YOUR_USER/RME_Bridge.git
 cd RME_Bridge
 sudo ./install.sh
 ```
 
-### Manuell
+### Manual
 
-1) Abhängigkeiten installieren
+1) Install dependencies
    ```bash
    sudo apt update
    sudo apt install python3 python3-paho-mqtt alsa-utils
    ```
 
-2) MQTT-Credentials anlegen
+2) Create MQTT credentials file
    ```bash
    sudo cp env.example /etc/default/rme-mqtt-bridge
    sudo chmod 600 /etc/default/rme-mqtt-bridge
-   sudo nano /etc/default/rme-mqtt-bridge   # MQTT_USER und MQTT_PASS anpassen
+   sudo nano /etc/default/rme-mqtt-bridge   # Set MQTT_USER and MQTT_PASS
    ```
 
-3) Bridge installieren
+3) Install bridge
    ```bash
    sudo cp rme_mqtt_bridge.py /usr/local/bin/
    sudo chmod +x /usr/local/bin/rme_mqtt_bridge.py
    sudo cp rme-mqtt-bridge.service /etc/systemd/system/
    ```
 
-4) Service-Datei anpassen (falls nötig)
+4) Adjust service file (if needed)
    ```bash
    sudo nano /etc/systemd/system/rme-mqtt-bridge.service
-   # MQTT_HOST, MIDI_PORT etc. anpassen
+   # Adjust MQTT_HOST, MIDI_PORT etc.
    ```
 
-5) Starten
+5) Start
    ```bash
    sudo systemctl daemon-reload
    sudo systemctl enable --now rme-mqtt-bridge
@@ -125,7 +125,7 @@ sudo ./install.sh
 
 ## Optional: Raspotify (Spotify Connect)
 
-Falls der Pi auch als Spotify-Quelle dienen soll (statt z. B. WiiM Mini):
+If you want the Pi to also serve as a Spotify source (instead of e.g. a WiiM Mini):
 
 ```bash
 sudo apt install raspotify
@@ -137,31 +137,31 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now raspotify raspotify-manager
 ```
 
-Der raspotify-Manager startet/stoppt raspotify automatisch wenn der DAC online/offline geht. Audio wird bit-perfect (S32, 320 kbps) gestreamt, die Lautstärke wird im DAC geregelt (nicht digital).
+The raspotify manager automatically starts/stops raspotify when the DAC goes online/offline. Audio is streamed bit-perfect (S32, 320 kbps), volume is controlled in the DAC (not digitally).
 
 ---
 
-## DietPi-Hinweise
+## DietPi Notes
 
-- DietPi nutzt systemd (seit v6), die Service-Dateien funktionieren direkt
-- ALSA-Utils: `sudo apt install alsa-utils` oder über `dietpi-software`
-- Bei Problemen mit dem Audio-Device: `dietpi-config` → Audio-Optionen prüfen
-- SSH-Zugang ist bei DietPi standardmäßig aktiv (User: `root`)
+- DietPi uses systemd (since v6), service files work out of the box
+- ALSA utils: `sudo apt install alsa-utils` or via `dietpi-software`
+- Audio device issues: check `dietpi-config` → Audio options
+- SSH access is enabled by default on DietPi (user: `root`)
 
 ---
 
 ## MQTT Topics
 
-| Topic | Richtung | Payload | Beschreibung |
+| Topic | Direction | Payload | Description |
 | --- | --- | --- | --- |
-| `rme/lineout/db/set` | Subscribe | Float dB (z. B. `-43.5`) | Gewünschte Lautstärke |
-| `rme/lineout/db/state` | Publish (retained) | Float dB | Tatsächlich gesetzte Lautstärke |
-| `rme/dac/status` | Publish (retained) | `online` / `offline` | DAC-Erkennung via `amidi -l` |
-| `rme/bridge/status` | Publish (retained, LWT) | `online` / `offline` | Bridge-Status |
+| `rme/lineout/db/set` | Subscribe | Float dB (e.g. `-43.5`) | Desired volume |
+| `rme/lineout/db/state` | Publish (retained) | Float dB | Actual volume set |
+| `rme/dac/status` | Publish (retained) | `online` / `offline` | DAC detection via `amidi -l` |
+| `rme/bridge/status` | Publish (retained, LWT) | `online` / `offline` | Bridge status |
 
 ---
 
-## Home Assistant Beispiel
+## Home Assistant Example
 
 ```yaml
 mqtt:
@@ -182,67 +182,67 @@ mqtt:
 
 ---
 
-## Konfiguration
+## Configuration
 
-Alle Einstellungen können über Umgebungsvariablen gesetzt werden – entweder in der Service-Datei oder im EnvironmentFile (`/etc/default/rme-mqtt-bridge`).
+All settings can be set via environment variables – either in the service file or in the EnvironmentFile (`/etc/default/rme-mqtt-bridge`).
 
-| Variable | Default | Bedeutung |
+| Variable | Default | Description |
 | --- | --- | --- |
-| `MQTT_HOST` | `192.168.100.60` | MQTT-Broker Adresse |
-| `MQTT_PORT` | `1883` | MQTT-Broker Port |
-| `MQTT_USER` / `MQTT_PASS` | leer | MQTT-Auth (via EnvironmentFile) |
-| `MIDI_PORT` | `hw:1,0,0` | ALSA MIDI-Port des DAC |
-| `DEFAULT_DB` | `-50.0` | Lautstärke beim DAC-Start |
-| `MIN_DB` / `MAX_DB` | `-60.0` / `-10.0` | Harte Limits |
-| `DAC_POLL_SECONDS` | `1.0` | Abfrageintervall für DAC-Erkennung |
-| `READY_STREAK` | `3` | Online-Polls bis "ready" |
-| `APPLY_RETRIES` | `6` | Wiederholungen beim Setzen der Lautstärke |
-| `APPLY_RETRY_DELAY` | `0.6` | Sekunden zwischen Wiederholungen |
-| `DEBOUNCE_SECONDS` | `0.03` | Mindestabstand zwischen Updates |
-| `DEBUG` | `0` | `1` für ausführliche Logs |
+| `MQTT_HOST` | `192.168.100.60` | MQTT broker address |
+| `MQTT_PORT` | `1883` | MQTT broker port |
+| `MQTT_USER` / `MQTT_PASS` | empty | MQTT auth (via EnvironmentFile) |
+| `MIDI_PORT` | `hw:1,0,0` | ALSA MIDI port of the DAC |
+| `DEFAULT_DB` | `-50.0` | Volume applied on DAC ready |
+| `MIN_DB` / `MAX_DB` | `-60.0` / `-10.0` | Hard limits |
+| `DAC_POLL_SECONDS` | `1.0` | DAC detection poll interval |
+| `READY_STREAK` | `3` | Consecutive online polls before "ready" |
+| `APPLY_RETRIES` | `6` | Retries when setting volume |
+| `APPLY_RETRY_DELAY` | `0.6` | Seconds between retries |
+| `DEBOUNCE_SECONDS` | `0.03` | Minimum interval between updates |
+| `DEBUG` | `0` | Set to `1` for verbose logging |
 
 ---
 
 ## Troubleshooting
 
-### DAC wird nicht erkannt
+### DAC not detected
 
 ```bash
-amidi -l          # Zeigt MIDI-Geräte – "ADI-2 DAC" sollte erscheinen
-aplay -l          # Zeigt Audio-Geräte
-lsusb             # USB-Geräte prüfen
+amidi -l          # Lists MIDI devices – "ADI-2 DAC" should appear
+aplay -l          # Lists audio devices
+lsusb             # Check USB devices
 ```
 
-- USB-Kabel prüfen (manche Kabel sind nur zum Laden)
-- Anderen USB-Port testen
-- DAC aus- und wieder einschalten
+- Check USB cable (some cables are charge-only)
+- Try a different USB port
+- Power-cycle the DAC
 
-### MQTT verbindet nicht
+### MQTT connection fails
 
 ```bash
 journalctl -u rme-mqtt-bridge -e
-# Suche nach: "MQTT connected rc=..." oder Fehlermeldungen
+# Look for: "MQTT connected rc=..." or error messages
 ```
 
-- Broker-Adresse und Port prüfen (`MQTT_HOST`, `MQTT_PORT`)
-- Credentials prüfen: `/etc/default/rme-mqtt-bridge`
-- Firewall: Port 1883 muss vom Pi zum Broker offen sein
+- Verify broker address and port (`MQTT_HOST`, `MQTT_PORT`)
+- Check credentials: `/etc/default/rme-mqtt-bridge`
+- Firewall: port 1883 must be open from Pi to broker
 - Test: `mosquitto_sub -h BROKER_IP -u USER -P PASS -t 'rme/#'`
 
-### Service startet nicht
+### Service won't start
 
 ```bash
 systemctl status rme-mqtt-bridge
 journalctl -u rme-mqtt-bridge --no-pager -n 30
 ```
 
-- Python-Fehler? → `python3 /usr/local/bin/rme_mqtt_bridge.py` manuell testen
-- EnvironmentFile fehlt? → Siehe [Installation](#installation)
+- Python error? → Run `python3 /usr/local/bin/rme_mqtt_bridge.py` manually
+- Missing EnvironmentFile? → See [Installation](#installation)
 
-### Debug-Modus
+### Debug mode
 
 ```bash
-# In der Service-Datei DEBUG=1 setzen:
+# Set DEBUG=1 via systemd override:
 sudo systemctl edit rme-mqtt-bridge
 # [Service]
 # Environment=DEBUG=1
@@ -251,23 +251,23 @@ sudo systemctl restart rme-mqtt-bridge
 journalctl -fu rme-mqtt-bridge
 ```
 
-### MIDI-Port stimmt nicht
+### Wrong MIDI port
 
 ```bash
 amidi -l
-# Ausgabe z. B.:
+# Example output:
 # Dir Device    Name
 # IO  hw:1,0,0  RME ADI-2 DAC MIDI 1
 ```
 
-Falls der Port nicht `hw:1,0,0` ist, in der Service-Datei anpassen:
+If the port is not `hw:1,0,0`, adjust the service file:
 ```bash
 # In /etc/systemd/system/rme-mqtt-bridge.service:
-Environment=MIDI_PORT=hw:2,0,0   # An tatsächlichen Port anpassen
+Environment=MIDI_PORT=hw:2,0,0   # Match your actual port
 ```
 
 ---
 
-## Lizenz
+## License
 
-[MIT License](LICENSE) – Nutzung auf eigene Gefahr. Lautstärke-Limits sind bewusst konservativ gewählt.
+[MIT License](LICENSE) – Use at your own risk. Volume limits are intentionally conservative.
