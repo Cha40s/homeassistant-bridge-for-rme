@@ -61,8 +61,8 @@ The installer will ask which setup you use and install raspotify automatically i
 
 ## Signal Flow
 
-<img width="1024" height="572" alt="image" src="https://github.com/user-attachments/assets/7bcd0fed-d414-49f2-ab73-0137d7c5bf52" />
 
+<img width="2752" height="1536" alt="Gemini_Generated_Image_ijvwl3ijvwl3ijvw" src="https://github.com/user-attachments/assets/b2ab52b4-6726-4341-ada4-ff86f2e97c6b" />
 
 ---
 
