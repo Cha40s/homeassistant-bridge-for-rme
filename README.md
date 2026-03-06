@@ -280,6 +280,22 @@ Environment=MIDI_PORT=hw:2,0,0   # Match your actual port
 
 ---
 
+## Acknowledgements
+
+This project is largely built with the help of AI ([Claude](https://claude.ai) by Anthropic).
+
+It relies on the following open-source projects:
+
+- [Eclipse Paho MQTT](https://github.com/eclipse-paho/paho.mqtt.python) – MQTT client library for Python
+- [ALSA](https://www.alsa-project.org/) – `amidi` for USB-MIDI communication
+- [Mosquitto](https://mosquitto.org/) – lightweight MQTT broker
+- [raspotify](https://github.com/dtcooper/raspotify) – Spotify Connect client for Raspberry Pi
+- [Home Assistant](https://www.home-assistant.io/) – open-source home automation platform
+
+Thanks to all contributors and maintainers of these projects.
+
+---
+
 ## License
 
 [MIT License](LICENSE) – Use at your own risk. Volume limits are intentionally conservative.
