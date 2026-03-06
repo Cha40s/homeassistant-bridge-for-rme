@@ -1,4 +1,6 @@
-# RME ADI-2 DAC – MQTT Volume Bridge
+# Home Assistant MQTT Bridge for RME ADI-2 DAC
+
+> **Disclaimer:** This project is an independent open-source software and is not affiliated with, endorsed by, or in any way officially connected to RME Audio (Audio AG) or any of its subsidiaries or affiliates. The official RME Audio website can be found at [https://www.rme-audio.de](https://www.rme-audio.de). The name "RME" as well as related names, marks, emblems, and images are registered trademarks of their respective owners.
 
 Control your RME ADI-2 DAC **Line Out** volume via Home Assistant. A Raspberry Pi handles volume control directly in the DAC hardware (not digitally!) via USB-MIDI, detects online/offline status, and communicates everything over MQTT.
 
@@ -9,8 +11,8 @@ Control your RME ADI-2 DAC **Line Out** volume via Home Assistant. A Raspberry P
 ## Quick Start
 
 ```bash
-git clone https://github.com/Cha40s/RME_Bridge.git
-cd RME_Bridge
+git clone https://github.com/Cha40s/homeassistant-bridge-for-rme.git
+cd homeassistant-bridge-for-rme
 sudo ./install.sh
 ```
 
@@ -92,8 +94,8 @@ The installer will ask which setup you use and install raspotify automatically i
 ### Automatic (recommended)
 
 ```bash
-git clone https://github.com/Cha40s/RME_Bridge.git
-cd RME_Bridge
+git clone https://github.com/Cha40s/homeassistant-bridge-for-rme.git
+cd homeassistant-bridge-for-rme
 sudo ./install.sh
 ```
 
@@ -281,3 +283,5 @@ Environment=MIDI_PORT=hw:2,0,0   # Match your actual port
 ## License
 
 [MIT License](LICENSE) – Use at your own risk. Volume limits are intentionally conservative.
+
+All product and company names are trademarks or registered trademarks of their respective holders. Use of them does not imply any affiliation with or endorsement by them.
