@@ -59,13 +59,8 @@ The installer will ask which setup you use and install raspotify automatically i
 
 ## Signal Flow
 
-```
-Audio source (WiiM / raspotify / CD / ...) → RME ADI-2 DAC
-                                               ↑
-              Pi ── USB ── MQTT ↔ MIDI Bridge → USB-MIDI → DAC Line Out Volume
-                                      ↑
-                                MQTT Broker ↔ Home Assistant
-```
+<img width="1024" height="572" alt="image" src="https://github.com/user-attachments/assets/7bcd0fed-d414-49f2-ab73-0137d7c5bf52" />
+
 
 ---
 
