@@ -25,6 +25,18 @@ echo "  RME ADI-2 DAC MQTT Bridge - Installation"
 echo "============================================"
 echo ""
 
+# --- Audio source selection ---
+echo "How is audio connected to your RME ADI-2 DAC?"
+echo ""
+echo "  1) External player (WiiM, CD, etc.) via SPDIF/optical/coax"
+echo "     → Set DAC input to SPDIF or optical"
+echo ""
+echo "  2) This Raspberry Pi via USB (Spotify Connect / raspotify)"
+echo "     → Set DAC input to USB"
+echo ""
+ask "Your choice [1/2]:" AUDIO_SOURCE
+echo ""
+
 # --- Dependencies ---
 info "Installing dependencies..."
 apt-get update -qq
@@ -68,11 +80,10 @@ systemctl enable rme-mqtt-bridge.service
 systemctl restart rme-mqtt-bridge.service
 info "Bridge service enabled and started."
 
-# --- Optional: Raspotify ---
-echo ""
-ask "Install Raspotify (Spotify Connect)? [y/N]:" INSTALL_RASPOTIFY
-if [[ "${INSTALL_RASPOTIFY,,}" == "y" ]]; then
-    info "Installing raspotify..."
+# --- Raspotify (if USB/internal selected) ---
+if [[ "${AUDIO_SOURCE}" == "2" ]]; then
+    echo ""
+    info "Installing raspotify (Spotify Connect)..."
     apt-get install -y -qq raspotify > /dev/null
 
     info "Copying raspotify configuration..."
@@ -86,6 +97,11 @@ if [[ "${INSTALL_RASPOTIFY,,}" == "y" ]]; then
     systemctl daemon-reload
     systemctl enable --now raspotify.service raspotify-manager.service
     info "Raspotify + manager enabled."
+    echo ""
+    warn "Make sure your DAC input is set to USB!"
+else
+    echo ""
+    warn "Make sure your DAC input matches your audio source (SPDIF/optical/coax)."
 fi
 
 # --- Status ---
@@ -93,6 +109,9 @@ echo ""
 echo "============================================"
 info "Installation complete!"
 echo "============================================"
+echo ""
+echo "Note: This bridge controls the DAC Line Out volume only."
+echo "      It does not control headphone output or input selection."
 echo ""
 systemctl status rme-mqtt-bridge.service --no-pager -l
 echo ""

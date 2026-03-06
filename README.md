@@ -1,6 +1,8 @@
 # RME ADI-2 DAC – MQTT Volume Bridge
 
-Control your RME ADI-2 DAC volume via Home Assistant. A Raspberry Pi handles volume control directly in the DAC hardware (not digitally!) via USB-MIDI, detects online/offline status, and communicates everything over MQTT. The audio source doesn't matter – WiiM, Spotify Connect, CD player, or anything else connected to the DAC.
+Control your RME ADI-2 DAC **Line Out** volume via Home Assistant. A Raspberry Pi handles volume control directly in the DAC hardware (not digitally!) via USB-MIDI, detects online/offline status, and communicates everything over MQTT.
+
+> **Important:** This bridge controls **Line Out volume only** (not headphone output or input selection). The USB connection is used exclusively for MIDI control – audio can come from any source.
 
 ---
 
@@ -38,7 +40,20 @@ The script installs all dependencies, prompts for MQTT credentials, and starts t
 | OS | Raspberry Pi OS (Bookworm), DietPi, Debian 12/13 |
 | MQTT Broker | Mosquitto (e.g. on Home Assistant) |
 
-> **Note:** The RME ADI-2 DAC registers as both a USB audio **and** USB MIDI device. The bridge only uses the MIDI interface for volume control. Audio runs separately (ALSA, SPDIF, analog – doesn't matter).
+> **Note:** The RME ADI-2 DAC registers as both a USB audio **and** USB MIDI device. The bridge only uses the MIDI interface for volume control. Audio runs separately.
+
+---
+
+## Audio Source Setup
+
+The bridge controls volume regardless of how audio reaches the DAC. You need to set the correct **DAC input** to match your setup:
+
+| Audio source | Connection | DAC input setting |
+| --- | --- | --- |
+| **External player** (WiiM Mini, CD, streamer) | SPDIF optical/coax to DAC | Set DAC to **SPDIF** or **Optical** |
+| **This Raspberry Pi** (raspotify / Spotify Connect) | USB to DAC (shared with MIDI) | Set DAC to **USB** |
+
+The installer will ask which setup you use and install raspotify automatically if needed.
 
 ---
 
@@ -47,7 +62,7 @@ The script installs all dependencies, prompts for MQTT credentials, and starts t
 ```
 Audio source (WiiM / raspotify / CD / ...) → RME ADI-2 DAC
                                                ↑
-                             MQTT ↔ MIDI Bridge → USB-MIDI → DAC Volume
+              Pi ── USB ── MQTT ↔ MIDI Bridge → USB-MIDI → DAC Line Out Volume
                                       ↑
                                 MQTT Broker ↔ Home Assistant
 ```
@@ -125,7 +140,7 @@ sudo ./install.sh
 
 ## Optional: Raspotify (Spotify Connect)
 
-If you want the Pi to also serve as a Spotify source (instead of e.g. a WiiM Mini):
+If you chose option 2 (USB audio) during installation, raspotify is already set up. For manual installation:
 
 ```bash
 sudo apt install raspotify
@@ -137,7 +152,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now raspotify raspotify-manager
 ```
 
-The raspotify manager automatically starts/stops raspotify when the DAC goes online/offline. Audio is streamed bit-perfect (S32, 320 kbps), volume is controlled in the DAC (not digitally).
+The raspotify manager automatically starts/stops raspotify when the DAC goes online/offline. Audio is streamed bit-perfect (S32, 320 kbps), volume is controlled in the DAC (not digitally). Make sure the DAC input is set to **USB**.
 
 ---
 
