@@ -7,7 +7,7 @@ Control your RME ADI-2 DAC volume via Home Assistant. A Raspberry Pi handles vol
 ## Quick Start
 
 ```bash
-git clone https://github.com/YOUR_USER/RME_Bridge.git
+git clone https://github.com/Cha40s/RME_Bridge.git
 cd RME_Bridge
 sudo ./install.sh
 ```
@@ -82,7 +82,7 @@ Audio source (WiiM / raspotify / CD / ...) → RME ADI-2 DAC
 ### Automatic (recommended)
 
 ```bash
-git clone https://github.com/YOUR_USER/RME_Bridge.git
+git clone https://github.com/Cha40s/RME_Bridge.git
 cd RME_Bridge
 sudo ./install.sh
 ```
