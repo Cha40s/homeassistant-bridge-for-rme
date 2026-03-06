@@ -57,6 +57,21 @@ The bridge controls volume regardless of how audio reaches the DAC. You need to 
 
 The installer will ask which setup you use and install raspotify automatically if needed.
 
+### Why SPDIF is enough
+
+The RME ADI-2 DAC's USB input is technically superior to SPDIF (higher sample rates, native DSD, async transfer). However, these advantages only matter with hi-res source material beyond CD quality. Spotify's highest tiers top out well within SPDIF's capabilities:
+
+| Spotify quality | Format | Bitrate |
+| --- | --- | --- |
+| Normal | OGG | ~96 kbit/s |
+| High | OGG | ~160 kbit/s |
+| Very high | OGG | ~320 kbit/s |
+| Lossless | FLAC | up to 24-bit/44.1 kHz |
+
+Even Spotify Lossless at 24-bit/44.1 kHz is handled perfectly by SPDIF (which supports up to 24-bit/192 kHz). There is **no audible difference** between USB and SPDIF when the source is Spotify – at any quality level.
+
+This means you can use an affordable network streamer like the [WiiM Mini](https://www.wiimhome.com/) via SPDIF and keep the USB port free for MIDI control only. The WiiM Mini supports Spotify Connect, AirPlay, and Chromecast at a fraction of the cost of high-end streamers – a perfect match for this setup.
+
 ---
 
 ## Signal Flow
