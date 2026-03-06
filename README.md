@@ -206,7 +206,63 @@ mqtt:
       mode: slider
       optimistic: true
 ```
+Slider for Volume Control with Bubble-Card
 
+```yaml
+  - type: custom:bubble-card
+    card_type: button
+    button_type: slider
+    entity: number.adi_2_line_out_volume
+    name: Spotify Volume
+    icon: mdi:music
+    show_icon: true
+    scrolling_effect: true
+    show_name: true
+    show_state: true
+    show_attribute: false
+    min_value: -60
+    max_value: -10
+    step: 0.5
+    tap_to_slide: true
+    relative_slide: false
+    slider_live_update: false
+    slider_value_position: right
+    invert_slider_value: false
+    tap_action:
+      action: none
+    double_tap_action:
+      action: none
+    hold_action:
+      action: none
+    card_layout: normal
+    sub_button:
+      main: []
+      bottom: []
+```
+
+Automation for RME Autostart with Broadcom Remote
+
+```yaml
+alias: "Auto-Start: RME DAC bei Musik"
+description: Schaltet RME DAC ein, wenn Wohnzimmer 2 spielt, aber DAC noch aus ist.
+triggers:
+  - entity_id: media_player.wohnzimmer_2
+    to: playing
+    trigger: state
+conditions:
+  - condition: state
+    entity_id: binary_sensor.rme_dac_status
+    state:
+      - "off"
+actions:
+  - action: remote.send_command
+    data:
+      device: RME
+      command: power
+    target:
+      device_id: c68222ed90bed75eb7b8a38bc1ed133a
+mode: single
+```
 ---
 
 ## Configuration
